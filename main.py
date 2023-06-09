@@ -7,6 +7,16 @@ from fastapi.encoders import jsonable_encoder
 
 app = FastAPI()
 
+NO_TEAM = 0
+RED_TEAM = 1
+BLUE_TEAM = 2
+
+init_data = {
+    'clients': [],
+    "is_started": False,
+    "is_ended": False
+}
+
 class ConnectionManager:
     def __init__(self):
         self.active_rooms: dict = {}
@@ -17,7 +27,7 @@ class ConnectionManager:
             room_ = self.active_rooms[room_id]
             room_['connections'].append(websocket)
         else:
-            self.active_rooms[room_id] = {'id': room_id, 'connections':[websocket]}
+            self.active_rooms[room_id] = { 'id': room_id, 'connections':[websocket], 'data': init_data }
 
     def disconnect(self, websocket: WebSocket, room_id:str):
         self.active_rooms[room_id]['connections'].remove(websocket)
@@ -45,8 +55,56 @@ async def websocket_endpoint(
     try:
         await manager.connect(websocket, room_id)
         while True:
+            res_data = {}
             data = await websocket.receive_json()
-            await manager.broadcast(data, room_id)
+
+            if data['action'] == 'get_data':
+                res_data = manager.active_rooms[room_id]['data']
+
+            elif data['action'] == 'connect':
+                res_data = manager.active_rooms[room_id]['data']
+
+                if res_data['is_started'] == True:
+                    manager.disconnect(websocket, room_id)
+
+                client_ids_in_room = [i['id'] for i in res_data['clients']]
+                if not data['client_id'] in client_ids_in_room:
+                    res_data['clients'].append({'id':data['client_id'], 'username': data['username'], 'team': NO_TEAM, 'score':0})
+
+                manager.active_rooms[room_id]['data'] = res_data
+
+            elif data['action'] == 'set_team':
+                res_data = manager.active_rooms[room_id]['data']
+                
+                for c in res_data['clients']:
+                    if c['id'] == data['client_id']:
+                        c['team'] = BLUE_TEAM if data['team'] == BLUE_TEAM else (RED_TEAM if data['team'] == RED_TEAM else NO_TEAM)
+
+                manager.active_rooms[room_id]['data'] = res_data
+
+            elif data['action'] == 'start_game':
+                res_data = manager.active_rooms[room_id]['data']
+                res_data['is_ended'] = False
+                res_data['is_started'] = True
+
+                manager.active_rooms[room_id]['data'] = res_data
+
+            elif data['action'] == 'end_game':
+                res_data = manager.active_rooms[room_id]['data']
+                res_data['is_started'] = False
+                res_data['is_ended'] = True
+
+                manager.active_rooms[room_id]['data'] = res_data
+
+            elif data['action'] == 'score':
+                res_data = manager.active_rooms[room_id]['data']
+                for c in res_data['clients']:
+                    if c['id'] == data['client_id']:
+                        c['score'] +=  data['score']
+
+                manager.active_rooms[room_id]['data'] = res_data
+
+            await manager.broadcast(res_data, room_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)
 
