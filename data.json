@@ -11,11 +11,58 @@
         ]
     },
     {
-        "id": 3,
-        "word": "Tatill22o",
+        "id": 2,
+        "word": "\u00d6NER\u0130",
         "taboos": [
-            "Gezmek",
-            "Tozmak"
+            "Teklif",
+            "\u00c7\u00f6z\u00fcm",
+            "Yol",
+            "C\u00fcmle",
+            "Tavsiye"
+        ]
+    },
+    {
+        "id": 3,
+        "word": "UYAK",
+        "taboos": [
+            "\u015eiir",
+            "Dize",
+            "Benzerlik",
+            "Kafiye",
+            "Ses"
+        ]
+    },
+    {
+        "id": 4,
+        "word": "S\u00d6ZL\u00dcK",
+        "taboos": [
+            "Anlam",
+            "Kelime",
+            "S\u00f6zc\u00fck",
+            "A\u00e7\u0131klama",
+            "L\u00fcgat"
+        ]
+    },
+    {
+        "id": 5,
+        "word": "KU\u015eBAKI\u015eI",
+        "taboos": [
+            "Harita",
+            "Tepe",
+            "Yukar\u0131",
+            "G\u00f6rmek",
+            "Kroki"
+        ]
+    },
+    {
+        "id": 6,
+        "word": "OKKA",
+        "taboos": [
+            "A\u011f\u0131rl\u0131k",
+            "\u00d6l\u00e7\u00fc",
+            "Birim",
+            "Kilo",
+            "Tart\u0131"
         ]
     }
 ]
