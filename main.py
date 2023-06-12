@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 app = FastAPI()
 
@@ -327,3 +328,7 @@ async def delete_item(response:Response, word_id:int):
     except Exception as e:
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return {"success":False, "message": str(e), 'data':{}}
+
+
+if __name__ == "__main__":
+  uvicorn.run("main:app", host="0.0.0.0", port=8765, reload=True)
