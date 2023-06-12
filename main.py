@@ -1,3 +1,4 @@
+import os
 import json
 import pandas as pd
 from typing import Dict, List, Optional
@@ -37,7 +38,10 @@ init_data = {
     "last_team": 1,
 }
 
-DF_WORDS = pd.read_json('./data.json')
+
+data_path = os.getcwd() + '/data.json'
+
+DF_WORDS = pd.read_json(data_path)
 
 class ConnectionManager:
     def __init__(self):
@@ -266,7 +270,7 @@ async def create_item(response:Response,item: Item):
     Add new word to our dataset
     '''
     try:
-        with open('data.json', 'r+') as f:
+        with open(data_path, 'r+') as f:
             data = json.load(f)
             df_words = pd.DataFrame(data)
             if item.word in df_words['word'].tolist():
@@ -281,11 +285,6 @@ async def create_item(response:Response,item: Item):
         response.status_code = status.HTTP_200_OK
         return {"success":True, "message": "ok", 'data':{}}
     except Exception as e:
-        import os,sys
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
-        print(e)
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return {"success":False, "message": str(e), 'data':{}}
 
@@ -296,7 +295,7 @@ async def get_items(response:Response):
     Add new word to our dataset
     '''
     try:
-        with open('data.json', 'r+') as f:
+        with open(data_path, 'r+') as f:
             data = json.load(f)
         df_words = pd.DataFrame(data)
         response.status_code = status.HTTP_200_OK
@@ -312,7 +311,7 @@ async def delete_item(response:Response, word_id:int):
     Add new word to our dataset
     '''
     try:
-        with open('data.json', 'r+') as f:
+        with open(data_path, 'r+') as f:
             data = json.load(f)
             df_words = pd.DataFrame(data)
             if not word_id in df_words['id'].tolist():
