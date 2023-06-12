@@ -94,168 +94,174 @@ async def websocket_endpoint(
     connect server and communicate with websocket
     '''
     try:
+        is_started = False
         df_word = DF_WORDS.sample(frac=1).reset_index(drop=True).copy()
-        await manager.connect(websocket, room_id)
-        while True:
-            res_data = {}
-            data = await websocket.receive_json()
 
-            if data['action'] == 'get_data':
-                res_data = manager.active_rooms[room_id]['data']
+        if room_id in list(manager.active_rooms.keys()):
+            is_started = manager.active_rooms[room_id]['data']['is_started']
 
-            elif data['action'] == 'timer':
-                if data['client_id'] == manager.active_rooms[room_id]['data']['admin_id']:
-                    if manager.active_rooms[room_id]['data']['timer'] > 0:
-                        manager.active_rooms[room_id]['data']['timer'] -= 1
-                res_data = manager.active_rooms[room_id]['data']
+        if not is_started:
+            await manager.connect(websocket, room_id)
+            while True:
+                res_data = {}
+                data = await websocket.receive_json()
 
-            elif data['action'] == 'connect':
-                active_data = manager.active_rooms[room_id]['data']
-                room_data = {
-                    'clients': active_data['clients'].copy(),
-                    'is_started': active_data['is_started'],
-                    'is_ended': active_data['is_ended'],
-                    'admin_id': active_data['admin_id'],
-                    'word': {"id":1, "word":"", "taboos":[]},
-                    "playing_info": {},
-                    "red_team": [],
-                    "blue_team": [],
-                    "last_team": 1,
-                    "timer": 0
-                }
-                if active_data['is_started'] == True:
-                    await manager.disconnect(websocket, room_id, client_id)
+                if data['action'] == 'get_data':
+                    res_data = manager.active_rooms[room_id]['data']
 
-                is_admin = False
-                client_ids_in_room = [i['id'] for i in room_data['clients']]
-                if not data['client_id'] in client_ids_in_room:
-                    if len(client_ids_in_room) <= 0:
-                        is_admin = True
-                    if is_admin:
-                        room_data['admin_id'] = client_id
-                    room_data['clients'].append({'id': data['client_id'], 'username': data['username'], 'team': NO_TEAM, 'score': 0, 'is_admin':is_admin})
+                elif data['action'] == 'timer':
+                    if data['client_id'] == manager.active_rooms[room_id]['data']['admin_id']:
+                        if manager.active_rooms[room_id]['data']['timer'] > 0:
+                            manager.active_rooms[room_id]['data']['timer'] -= 1
+                    res_data = manager.active_rooms[room_id]['data']
 
-                manager.active_rooms[room_id]['data'] = room_data
-                res_data = manager.active_rooms[room_id]['data']
+                elif data['action'] == 'connect':
+                    active_data = manager.active_rooms[room_id]['data']
+                    room_data = {
+                        'clients': active_data['clients'].copy(),
+                        'is_started': active_data['is_started'],
+                        'is_ended': active_data['is_ended'],
+                        'admin_id': active_data['admin_id'],
+                        'word': {"id":1, "word":"", "taboos":[]},
+                        "playing_info": {},
+                        "red_team": [],
+                        "blue_team": [],
+                        "last_team": 1,
+                        "timer": 0
+                    }
+                    if active_data['is_started'] == True:
+                        await manager.disconnect(websocket, room_id, client_id)
 
-            elif data['action'] == 'set_team':
-                res_data = manager.active_rooms[room_id]['data']
-                
-                for c in res_data['clients']:
-                    if c['id'] == data['client_id']:
-                        c['team'] = BLUE_TEAM if data['team'] == BLUE_TEAM else (RED_TEAM if data['team'] == RED_TEAM else NO_TEAM)
+                    is_admin = False
+                    client_ids_in_room = [i['id'] for i in room_data['clients']]
+                    if not data['client_id'] in client_ids_in_room:
+                        if len(client_ids_in_room) <= 0:
+                            is_admin = True
+                        if is_admin:
+                            room_data['admin_id'] = client_id
+                        room_data['clients'].append({'id': data['client_id'], 'username': data['username'], 'team': NO_TEAM, 'score': 0, 'is_admin':is_admin})
 
-                manager.active_rooms[room_id]['data'] = res_data
+                    manager.active_rooms[room_id]['data'] = room_data
+                    res_data = manager.active_rooms[room_id]['data']
 
-            elif data['action'] == 'start_game':
-                random_word = df_word.head(1)
-                active_data = manager.active_rooms[room_id]['data']
+                elif data['action'] == 'set_team':
+                    res_data = manager.active_rooms[room_id]['data']
+                    
+                    for c in res_data['clients']:
+                        if c['id'] == data['client_id']:
+                            c['team'] = BLUE_TEAM if data['team'] == BLUE_TEAM else (RED_TEAM if data['team'] == RED_TEAM else NO_TEAM)
 
-                active_clients = active_data['clients'].copy()
-                red_team = []
-                blue_team = []
-                for c in active_clients:
-                    if c['team'] == 1:
-                        red_team.append(c)
-                    elif c['team'] == 2:
-                        blue_team.append(c)
+                    manager.active_rooms[room_id]['data'] = res_data
 
-                room_data = {
-                    'clients': active_clients,
-                    'is_started': True,
-                    'is_ended': False,
-                    'admin_id': active_data['admin_id'],
-                    'word': random_word.to_dict('records')[0],
-                    "playing_info": red_team[0],
-                    "last_red_idx": 0,
-                    "last_blue_idx": -1,
-                    "last_team": 1,
-                    "red_team": red_team,
-                    "blue_team": blue_team,
-                    "timer": 60
-                }
-                manager.active_rooms[room_id]['data'] = room_data 
-                manager.active_rooms[room_id]['last_word_idx'] = 0
-                res_data = manager.active_rooms[room_id]['data']
+                elif data['action'] == 'start_game':
+                    random_word = df_word.head(1)
+                    active_data = manager.active_rooms[room_id]['data']
 
-            elif data['action'] == 'end_game':
-                res_data = manager.active_rooms[room_id]['data']
-                res_data['is_started'] = False
-                res_data['is_ended'] = True
+                    active_clients = active_data['clients'].copy()
+                    red_team = []
+                    blue_team = []
+                    for c in active_clients:
+                        if c['team'] == 1:
+                            red_team.append(c)
+                        elif c['team'] == 2:
+                            blue_team.append(c)
 
-                manager.active_rooms[room_id]['data'] = res_data
+                    room_data = {
+                        'clients': active_clients,
+                        'is_started': True,
+                        'is_ended': False,
+                        'admin_id': active_data['admin_id'],
+                        'word': random_word.to_dict('records')[0],
+                        "playing_info": red_team[0],
+                        "last_red_idx": 0,
+                        "last_blue_idx": -1,
+                        "last_team": 1,
+                        "red_team": red_team,
+                        "blue_team": blue_team,
+                        "timer": 60
+                    }
+                    manager.active_rooms[room_id]['data'] = room_data 
+                    manager.active_rooms[room_id]['last_word_idx'] = 0
+                    res_data = manager.active_rooms[room_id]['data']
 
-            elif data['action'] == 'score':
-                last_idx = manager.active_rooms[room_id]['last_word_idx']
-                if last_idx+1 >= df_word.__len__():
-                    last_idx = 0
-                random_word = df_word[last_idx+1:last_idx+2]
-                manager.active_rooms[room_id]['last_word_idx'] = last_idx+1
+                elif data['action'] == 'end_game':
+                    res_data = manager.active_rooms[room_id]['data']
+                    res_data['is_started'] = False
+                    res_data['is_ended'] = True
 
-                active_data = manager.active_rooms[room_id]['data']
-                room_data = {
-                    'clients': active_data['clients'].copy(),
-                    'is_started': active_data['is_started'],
-                    'is_ended': active_data['is_ended'],
-                    'admin_id': active_data['admin_id'],
-                    'word': random_word.to_dict('records')[0],
-                    "playing_info": active_data['playing_info'],
-                    "red_team": active_data['red_team'],
-                    "blue_team": active_data['blue_team'],
-                    "timer": active_data['timer'],
-                    "last_red_idx": active_data['last_red_idx'],
-                    "last_blue_idx": active_data['last_blue_idx'],
-                    "last_team": active_data['last_team']
-                }
-                new_clients = []
-                for c in room_data['clients']:
-                    if c['id'] == data['client_id']:
-                        c['score'] +=  data['score']
-                    new_clients.append(c)
+                    manager.active_rooms[room_id]['data'] = res_data
 
-                room_data['clients'] = new_clients
-                manager.active_rooms[room_id]['data'] = room_data
-                res_data = manager.active_rooms[room_id]['data']
+                elif data['action'] == 'score':
+                    last_idx = manager.active_rooms[room_id]['last_word_idx']
+                    if last_idx+1 >= df_word.__len__():
+                        last_idx = 0
+                    random_word = df_word[last_idx+1:last_idx+2]
+                    manager.active_rooms[room_id]['last_word_idx'] = last_idx+1
 
-            elif data['action'] == 'next_turn':
-                last_idx = manager.active_rooms[room_id]['last_word_idx']
-                if last_idx+1 >= df_word.__len__():
-                    last_idx = 0
-                random_word = df_word[last_idx+1:last_idx+2]
-                manager.active_rooms[room_id]['last_word_idx'] = last_idx+1
+                    active_data = manager.active_rooms[room_id]['data']
+                    room_data = {
+                        'clients': active_data['clients'].copy(),
+                        'is_started': active_data['is_started'],
+                        'is_ended': active_data['is_ended'],
+                        'admin_id': active_data['admin_id'],
+                        'word': random_word.to_dict('records')[0],
+                        "playing_info": active_data['playing_info'],
+                        "red_team": active_data['red_team'],
+                        "blue_team": active_data['blue_team'],
+                        "timer": active_data['timer'],
+                        "last_red_idx": active_data['last_red_idx'],
+                        "last_blue_idx": active_data['last_blue_idx'],
+                        "last_team": active_data['last_team']
+                    }
+                    new_clients = []
+                    for c in room_data['clients']:
+                        if c['id'] == data['client_id']:
+                            c['score'] +=  data['score']
+                        new_clients.append(c)
 
-                active_data = manager.active_rooms[room_id]['data']
-                room_data = {
-                    'clients': active_data['clients'].copy(),
-                    'is_started': active_data['is_started'],
-                    'is_ended': active_data['is_ended'],
-                    'admin_id': active_data['admin_id'],
-                    'word': random_word.to_dict('records')[0],
-                    "playing_info": active_data['playing_info'],
-                    "red_team": active_data['red_team'],
-                    "blue_team": active_data['blue_team'],
-                    "timer": 60,
-                    "last_red_idx": active_data['last_red_idx'],
-                    "last_blue_idx": active_data['last_blue_idx'],
-                    "last_team": active_data['last_team']
-                }
+                    room_data['clients'] = new_clients
+                    manager.active_rooms[room_id]['data'] = room_data
+                    res_data = manager.active_rooms[room_id]['data']
 
-                if room_data['last_team'] == 1:
-                    room_data['last_team'] = 2
-                    if room_data['last_blue_idx'] +1 >= len(room_data['blue_team']):
-                        room_data['last_blue_idx'] = -1
-                    room_data['playing_info'] = room_data['blue_team'][room_data['last_blue_idx'] +1]
-                    room_data['last_blue_idx'] += 1
-                elif room_data['last_team'] == 2:
-                    room_data['last_team'] = 1
-                    if room_data['last_red_idx'] +1 >= len(room_data['red_team']):
-                        room_data['last_red_idx'] = -1
-                    room_data['playing_info'] = room_data['red_team'][room_data['last_red_idx'] +1]
-                    room_data['last_red_idx'] += 1
-                manager.active_rooms[room_id]['data'] = room_data
-                res_data = manager.active_rooms[room_id]['data']
+                elif data['action'] == 'next_turn':
+                    last_idx = manager.active_rooms[room_id]['last_word_idx']
+                    if last_idx+1 >= df_word.__len__():
+                        last_idx = 0
+                    random_word = df_word[last_idx+1:last_idx+2]
+                    manager.active_rooms[room_id]['last_word_idx'] = last_idx+1
 
-            await manager.broadcast(res_data, room_id)
+                    active_data = manager.active_rooms[room_id]['data']
+                    room_data = {
+                        'clients': active_data['clients'].copy(),
+                        'is_started': active_data['is_started'],
+                        'is_ended': active_data['is_ended'],
+                        'admin_id': active_data['admin_id'],
+                        'word': random_word.to_dict('records')[0],
+                        "playing_info": active_data['playing_info'],
+                        "red_team": active_data['red_team'],
+                        "blue_team": active_data['blue_team'],
+                        "timer": 60,
+                        "last_red_idx": active_data['last_red_idx'],
+                        "last_blue_idx": active_data['last_blue_idx'],
+                        "last_team": active_data['last_team']
+                    }
+
+                    if room_data['last_team'] == 1:
+                        room_data['last_team'] = 2
+                        if room_data['last_blue_idx'] +1 >= len(room_data['blue_team']):
+                            room_data['last_blue_idx'] = -1
+                        room_data['playing_info'] = room_data['blue_team'][room_data['last_blue_idx'] +1]
+                        room_data['last_blue_idx'] += 1
+                    elif room_data['last_team'] == 2:
+                        room_data['last_team'] = 1
+                        if room_data['last_red_idx'] +1 >= len(room_data['red_team']):
+                            room_data['last_red_idx'] = -1
+                        room_data['playing_info'] = room_data['red_team'][room_data['last_red_idx'] +1]
+                        room_data['last_red_idx'] += 1
+                    manager.active_rooms[room_id]['data'] = room_data
+                    res_data = manager.active_rooms[room_id]['data']
+
+                await manager.broadcast(res_data, room_id)
     except WebSocketDisconnect:
         await manager.disconnect(websocket, room_id, client_id)
 
